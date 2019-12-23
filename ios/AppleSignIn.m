@@ -1,6 +1,6 @@
 #import "AppleSignIn.h"
-
 #import <React/RCTUtils.h>
+
 @implementation AppleSignIn
 
 -(dispatch_queue_t)methodQueue
@@ -54,7 +54,10 @@ RCT_EXPORT_METHOD(requestAsync:(NSDictionary *)options
   
   ASAuthorizationAppleIDProvider* appleIDProvider = [[ASAuthorizationAppleIDProvider alloc] init];
   ASAuthorizationAppleIDRequest* request = [appleIDProvider createRequest];
-  request.requestedScopes = options[@"requestedScopes"];
+  NSArray<ASAuthorizationScope>* scopes = @[ASAuthorizationScopeFullName, ASAuthorizationScopeEmail];
+    
+  request.requestedScopes = scopes;
+    
   if (options[@"requestedOperation"]) {
     request.requestedOperation = options[@"requestedOperation"];
   }
@@ -74,15 +77,30 @@ RCT_EXPORT_METHOD(requestAsync:(NSDictionary *)options
 - (void)authorizationController:(ASAuthorizationController *)controller
    didCompleteWithAuthorization:(ASAuthorization *)authorization {
   ASAuthorizationAppleIDCredential* credential = authorization.credential;
+    
+  NSDictionary *givenName;
+  NSDictionary *familyName;
+  if (credential.fullName) {
+    givenName = RCTNullIfNil(credential.fullName.givenName);
+    familyName = RCTNullIfNil(credential.fullName.familyName);
+  }
+
+  NSString *authorizationCode;
+  if (credential.authorizationCode) {
+    authorizationCode = [[NSString alloc] initWithData:credential.authorizationCode encoding:NSUTF8StringEncoding];
+  }
+  NSString *identityToken;
+  if (credential.identityToken) {
+    identityToken = [[NSString alloc] initWithData:credential.identityToken encoding:NSUTF8StringEncoding];
+  }
+
   NSDictionary* user = @{
-                         @"fullName": RCTNullIfNil(credential.fullName),
+                         @"authorizationCode": RCTNullIfNil(authorizationCode),
+                         @"identityToken": RCTNullIfNil(identityToken),
+                         @"firstName": givenName,
+                         @"lastName": familyName,
                          @"email": RCTNullIfNil(credential.email),
-                         @"user": credential.user,
-                         @"authorizedScopes": credential.authorizedScopes,
-                         @"realUserStatus": @(credential.realUserStatus),
-                         @"state": RCTNullIfNil(credential.state),
-                         @"authorizationCode": RCTNullIfNil(credential.authorizationCode),
-                         @"identityToken": RCTNullIfNil(credential.identityToken)
+                         @"user": credential.user
                          };
   _promiseResolve(user);
 }
@@ -98,6 +116,5 @@ RCT_EXPORT_METHOD(requestAsync:(NSDictionary *)options
 //    // TODO: Implement some actually useful functionality
 //    callback(@[[NSString stringWithFormat: @"numberArgument: %@ stringArgument: %@", numberArgument, stringArgument]]);
 //}
-
 
 @end
